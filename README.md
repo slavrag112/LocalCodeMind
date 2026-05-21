@@ -1,63 +1,68 @@
-# LocalAI-RAG
+# 🚀 LocalCodeMind
 
-Local AI research workstation with:
+Offline AI Repository Intelligence System
 
-- Semantic code retrieval
+LocalCodeMind is an experimental local-first AI system for semantic repository analysis.
+
+It allows users to:
+
+- Index GitHub repositories
+- Perform semantic code search
+- Build repository embeddings
+- Visualize project architecture
+- Explore large codebases locally
+- Analyze CUDA / GGML / inference pipelines
+
+---
+
+# Features
+
+## 🔍 Semantic Repository Search
+
+Ask questions like:
+
+- Where is CUDA implemented?
+- KV cache implementation
+- Quantization code
+- GGUF loader
+- Server implementation
+
+---
+
+## 🧠 Local Embeddings
+
+Uses:
+
+- sentence-transformers
 - Qdrant vector database
-- Ollama integration
-- Local embeddings
-- Technical repository indexing
-- RAG pipeline for AI systems research
+- local embedding generation
 
-## Indexed repositories
+---
 
-- llama.cpp
-- FlashAttention
-- vLLM
-- TensorRT-LLM
-- DeepSpeed
-- Transformers
+## 🗺 Architecture Visualization
 
-## Features
+Generate repository maps and dependency graphs.
 
-- Local-first architecture
-- Semantic search over code
-- Technical knowledge retrieval
-- RAG + local LLM
-- Qdrant vector memory
-- FastEmbed embeddings
+---
 
-## Example query
+## 🌐 Web UI
 
-How does vLLM implement PagedAttention?
+Built with Gradio.
 
-## Stack
+---
+
+# Stack
 
 - Python
+- Gradio
 - Qdrant
-- Ollama
-- FastEmbed
-- Sentence Transformers
+- sentence-transformers
+- llama.cpp
+- GGUF models
 
-## Architecture
+---
 
-User Question
-↓
-Embedding
-↓
-Qdrant Retrieval
-↓
-Relevant Code Chunks
-↓
-Qwen via Ollama
-↓
-Technical Answer
+# Example
 
-## Future Improvements
-
-- Hybrid retrieval
-- BM25 reranking
-- Open WebUI integration
-- Repo-aware filtering
-- Multi-query retrieval
-- Agent memory
+```bash
+python rag_webui.py
