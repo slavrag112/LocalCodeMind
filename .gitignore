@@ -1,0 +1,10 @@
+rag-env/
+venv/
+__pycache__/
+*.pyc
+*.gguf
+models/
+cache/
+chroma_db/
+*.bin
+*.pt
