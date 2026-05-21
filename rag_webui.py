@@ -1,0 +1,309 @@
+import gradio as gr
+import requests
+import json
+import fitz
+import uuid
+import os
+
+from git import Repo
+
+from qdrant_client import QdrantClient
+from qdrant_client.models import PointStruct
+
+from fastembed import TextEmbedding
+
+# ----------------------------------------
+# CONFIG
+# ----------------------------------------
+
+COLLECTION = "rag"
+
+OLLAMA_URL = "http://localhost:11434/api/generate"
+
+MODEL = "qwen-stable"
+
+REPO_DIR = "/home/slav/repos"
+
+# ----------------------------------------
+# INIT
+# ----------------------------------------
+
+os.makedirs(REPO_DIR, exist_ok=True)
+
+client = QdrantClient(
+    host="localhost",
+    port=6333
+)
+
+embed_model = TextEmbedding()
+
+# ----------------------------------------
+# INDEX
+# ----------------------------------------
+
+def index_texts(texts):
+
+    if len(texts) == 0:
+        return "No valid texts found"
+
+    vectors = list(
+        embed_model.embed(texts)
+    )
+
+    points = []
+
+    for text, vector in zip(texts, vectors):
+
+        points.append(
+            PointStruct(
+                id=str(uuid.uuid4()),
+                vector=vector.tolist(),
+                payload={
+                    "text": text
+                }
+            )
+        )
+
+    if len(points) == 0:
+        return "No vectors created"
+
+    client.upsert(
+        collection_name=COLLECTION,
+        points=points
+    )
+
+    return f"Indexed {len(points)} chunks"
+
+# ----------------------------------------
+# PDF
+# ----------------------------------------
+
+def ingest_pdf(pdf_file):
+
+    try:
+
+        doc = fitz.open(pdf_file.name)
+
+        texts = []
+
+        for page in doc:
+
+            text = page.get_text()
+
+            if len(text) > 100:
+
+                texts.append(text[:500])
+
+        return index_texts(texts)
+
+    except Exception as e:
+
+        return str(e)
+
+# ----------------------------------------
+# GITHUB
+# ----------------------------------------
+
+def ingest_repo(repo_url):
+
+    try:
+
+        repo_name = repo_url.split("/")[-1]
+
+        repo_path = os.path.join(
+            REPO_DIR,
+            repo_name
+        )
+
+        if os.path.exists(repo_path):
+
+            return "Repo already exists"
+
+        Repo.clone_from(
+            repo_url,
+            repo_path
+        )
+
+        texts = []
+
+        for root, dirs, files in os.walk(repo_path):
+
+            for file in files:
+
+                if not (
+                    file.endswith(".py")
+                    or file.endswith(".cpp")
+                    or file.endswith(".cu")
+                    or file.endswith(".h")
+                    or file.endswith(".md")
+                ):
+                    continue
+
+                path = os.path.join(root, file)
+
+                try:
+
+                    with open(
+                        path,
+                        "r",
+                        encoding="utf-8",
+                        errors="ignore"
+                    ) as f:
+
+                        content = f.read()
+
+                        if len(content) > 100:
+
+                            texts.append(content[:500])
+
+                except:
+                    pass
+
+        return index_texts(texts)
+
+    except Exception as e:
+
+        return str(e)
+
+# ----------------------------------------
+# ASK
+# ----------------------------------------
+
+def ask_rag(message):
+
+    try:
+
+        query_vector = list(
+            embed_model.embed([message])
+        )[0]
+
+        results = client.query_points(
+            collection_name=COLLECTION,
+            query=query_vector.tolist(),
+            limit=1
+        )
+
+        context = ""
+
+        for point in results.points:
+
+            context += point.payload.get("text", "")
+            context += "\n\n"
+
+        prompt = f"""
+Answer briefly and technically.
+
+QUESTION:
+{message}
+
+CONTEXT:
+{context}
+
+ANSWER:
+"""
+
+        response = requests.post(
+            OLLAMA_URL,
+            json={
+                "model": MODEL,
+                "prompt": prompt,
+                "stream": True,
+                "options": {
+                    "temperature": 0.1,
+                    "num_predict": 64
+                }
+            },
+            stream=True
+        )
+
+        partial = ""
+
+        for line in response.iter_lines():
+
+            if not line:
+                continue
+
+            try:
+
+                data = json.loads(line)
+
+                token = data.get("response", "")
+
+                partial += token
+
+                yield partial
+
+            except:
+                pass
+
+    except Exception as e:
+
+        yield str(e)
+
+# ----------------------------------------
+# UI
+# ----------------------------------------
+
+with gr.Blocks() as demo:
+
+    gr.Markdown("# 🚀 Lightweight AI Research Assistant")
+
+    # PDF
+
+    pdf_input = gr.File(
+        label="Upload PDF"
+    )
+
+    pdf_output = gr.Textbox(
+        label="PDF Status"
+    )
+
+    pdf_btn = gr.Button(
+        "Index PDF"
+    )
+
+    pdf_btn.click(
+        ingest_pdf,
+        inputs=[pdf_input],
+        outputs=[pdf_output]
+    )
+
+    # REPO
+
+    repo_input = gr.Textbox(
+        label="GitHub Repo URL"
+    )
+
+    repo_output = gr.Textbox(
+        label="Repo Status"
+    )
+
+    repo_btn = gr.Button(
+        "Index Repository"
+    )
+
+    repo_btn.click(
+        ingest_repo,
+        inputs=[repo_input],
+        outputs=[repo_output]
+    )
+
+    # CHAT
+
+    chat = gr.Interface(
+        fn=ask_rag,
+        inputs=gr.Textbox(
+            lines=3,
+            placeholder="Ask about repos or papers..."
+        ),
+        outputs="text"
+    )
+
+# ----------------------------------------
+# RUN
+# ----------------------------------------
+
+demo.launch(
+    server_name="0.0.0.0",
+    server_port=7861
+)
