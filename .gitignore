@@ -8,3 +8,4 @@ cache/
 chroma_db/
 *.bin
 *.pt
+.aider*

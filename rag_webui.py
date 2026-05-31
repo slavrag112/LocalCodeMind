@@ -16,11 +16,11 @@ from fastembed import TextEmbedding
 # CONFIG
 # ----------------------------------------
 
-COLLECTION = "rag"
+COLLECTION = "technical_rag"
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
 
-MODEL = "qwen-stable"
+MODEL = "qwen35-fast"
 
 REPO_DIR = "/home/slav/repos"
 
@@ -210,7 +210,7 @@ ANSWER:
                 "stream": True,
                 "options": {
                     "temperature": 0.1,
-                    "num_predict": 64
+                    "num_predict": 512
                 }
             },
             stream=True
@@ -220,6 +220,8 @@ ANSWER:
 
         for line in response.iter_lines():
 
+            print("RAW:", line)
+
             if not line:
                 continue
 
@@ -227,14 +229,20 @@ ANSWER:
 
                 data = json.loads(line)
 
-                token = data.get("response", "")
+                print("JSON:", data)
 
-                partial += token
+                token = data.get("response", "") or data.get("thinking", "")
 
-                yield partial
+                if token:
 
-            except:
-                pass
+                    partial += token
+
+                    yield partial
+
+            except Exception as e:
+
+                print("ERROR:", e)
+                print("LINE:", line)
 
     except Exception as e:
 
