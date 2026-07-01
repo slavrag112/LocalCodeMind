@@ -20,7 +20,7 @@ COLLECTION = "technical_rag"
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
 
-MODEL = "qwen3.5:35b"
+MODEL = "qwen35-fast"
 
 REPO_DIR = "/home/slav/repos"
 
@@ -154,7 +154,7 @@ def ingest_repo(repo_url):
 
                         if len(content) > 100:
 
-                            texts.append(f"FILE: {path}\n\n{content[:4000]}")
+                            texts.append(content[:500])
 
                 except:
                     pass
@@ -170,7 +170,6 @@ def ingest_repo(repo_url):
 # ----------------------------------------
 
 def ask_rag(message):
-    print("ASK_RAG CALLED:", message, flush=True)
 
     try:
 
@@ -181,7 +180,7 @@ def ask_rag(message):
         results = client.query_points(
             collection_name=COLLECTION,
             query=query_vector.tolist(),
-            limit=5
+            limit=1
         )
 
         context = ""
@@ -192,30 +191,7 @@ def ask_rag(message):
             context += "\n\n"
 
         prompt = f"""
-You are a technical RAG assistant.
-
-Use ONLY information from CONTEXT.
-
-Do not output:
-- Thinking Process
-- Reasoning
-- Chain of Thought
-
-Never say:
-- I don't have access to local files
-- I cannot access your filesystem
-- I cannot inspect your project
-
-If the answer exists in CONTEXT:
-answer directly and briefly.
-
-If filenames are present:
-mention the filename.
-
-If the answer is not found:
-reply exactly:
-
-Not found in indexed knowledge base.
+Answer briefly and technically.
 
 QUESTION:
 {message}
@@ -233,7 +209,7 @@ ANSWER:
                 "prompt": prompt,
                 "stream": True,
                 "options": {
-                    "temperature": 0.0,
+                    "temperature": 0.1,
                     "num_predict": 512
                 }
             },
@@ -323,18 +299,13 @@ with gr.Blocks() as demo:
     # CHAT
 
     chat = gr.Interface(
-    fn=ask_rag,
-    inputs=gr.Textbox(
-        lines=3,
-        placeholder="Ask about repos or papers..."
-    ),
-    outputs="text"
-)
-
-chat.render()
-
-# ----------------------------------------
-# RUN0
+        fn=ask_rag,
+        inputs=gr.Textbox(
+            lines=3,
+            placeholder="Ask about repos or papers..."
+        ),
+        outputs="text"
+    )
 
 # ----------------------------------------
 # RUN
